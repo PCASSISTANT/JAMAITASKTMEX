@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KTMEX - Sistema de Etiquetas JAMA</title>
+    <!-- Librerías requeridas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --area-color: #27ae60;
+            --side-color: #27ae60;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1a1a1d;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        .admin-panel {
+            display: flex;
+            gap: 20px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        .form-container {
+            background: #25252b;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 1;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .preview-container {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header-title-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .btn-admin-toggle {
+            background: #8e44ad;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 11px;
+            flex: initial;
+        }
+        .btn-admin-toggle:hover {
+            background: #9b59b6;
+        }
+        .admin-badge {
+            font-size: 11px;
+            background: #27ae60;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: none;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .full-width {
+            grid-column: span 2;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 8px;
+        }
+        label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        input, select {
+            background: #121214;
+            border: 1px solid #444;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        input[readonly], select[disabled] {
+            background: #1a1a1e;
+            border-color: #333;
+            color: #888;
+            cursor: not-allowed;
+        }
+        input:not([readonly]), select:not([disabled]) {
+            border-color: #f39c12;
+        }
+
+        /* SECCIÓN LOTE ADMIN */
+        .batch-container {
+            display: none;
+            background: #1e1e24;
+            border: 1px solid #27ae60;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+        .batch-title {
+            color: #27ae60;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .btn-batch {
+            background: #27ae60;
+            color: white;
+            margin-top: 8px;
+        }
+        .btn-batch:hover {
+            background: #2ecc71;
+        }
+
+        .btn-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .btn-preview {
+            background: #3498db;
+            color: white;
+        }
+        .btn-pdf {
+            background: #e74c3c;
+            color: white;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* DISEÑO EXACTO DE LA ETIQUETA JAMA */
+        .kanban-render {
+            width: 800px;
+            height: 290px;
+            background: white;
+            color: black;
+            display: none;
+            flex-direction: column;
+            border: 2px solid black;
+            margin-top: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .header-row {
+            display: flex;
+            height: 50px;
+            background: #e8e8e8;
+            border-bottom: 2px solid black;
+            align-items: stretch;
+            box-sizing: border-box;
+        }
+        .header-cell {
+            flex: 1;
+            border-right: 1px solid black;
+            padding: 4px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .header-cell:last-child {
+            border-right: none;
+        }
+        .header-cell span {
+            display: block;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #333;
+        }
+        .header-cell div {
+            font-weight: bold;
+            font-size: 16px;
+            min-height: 20px;
+            color: black;
+        }
+        .proc-highlight div {
+            font-size: 18px !important;
+        }
+
+        .body-row {
+            display: flex;
+            height: 236px;
+            box-sizing: border-box;
+        }
+        .left-panel {
+            width: 35%;
+            display: flex;
+            flex-direction: column;
+            background: var(--side-color);
+            border-right: 2px solid black;
+        }
+        .side-field {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid black;
+            font-weight: bold;
+            position: relative;
+        }
+        .side-field:last-child {
+            border-bottom: none;
+        }
+        .side-field::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 4px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            font-size: 8px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        .val-large {
+            font-size: 38px;
+        }
+        .val-mid {
+            font-size: 24px;
+        }
+
+        .right-panel {
+            width: 65%;
+            display: flex;
+            position: relative;
+            height: 100%;
+        }
+        .center-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid black;
+            height: 100%;
+            overflow: hidden;
+        }
+        .img-area {
+            flex: 1;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #ffffff;
+            overflow: hidden;
+            height: 186px;
+        }
+        .img-area img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .tekin-label {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            border: 2px solid black;
+            background: #ffffff;
+            min-width: 28px;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: black;
+            border-radius: 0px;
+            box-sizing: border-box;
+            padding: 2px 6px;
+            line-height: 1;
+        }
+
+        .no-img-text {
+            color: #888;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .min-max-bar {
+            display: flex;
+            height: 50px;
+            min-height: 50px;
+            border-top: 2px solid black;
+            box-sizing: border-box;
+        }
+        .min-box {
+            flex: 1;
+            background: #ff3333;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid black;
+        }
+        .max-box {
+            flex: 1;
+            background: #7cd342;
+            color: black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .min-max-title {
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+        .min-max-val {
+            font-size: 20px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .qr-area {
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            background: white;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .status-cloud {
+            font-size: 11px;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+        #pdf-progress {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #f39c12;
+            font-size: 13px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="admin-panel">
+    <div class="form-container">
+        <div class="header-title-container">
+            <h2 style="margin:0; color:#3498db">
+                KTMEX | Label System <span id="admin-badge" class="admin-badge">ADMIN</span>
+            </h2>
+            <button class="btn-admin-toggle" onclick="toggleAdminMode()">Modo Admin</button>
+        </div>
+        
+        <!-- PANEL DE IMPRESIÓN POR LOTE (ADMIN) -->
+        <div id="batch-section" class="batch-container">
+            <div class="batch-title">Impresión por Lote (Ubicación / Línea)</div>
+            <div class="form-group">
+                <label>Seleccionar Ubicación / Línea</label>
+                <select id="batch-location-select">
+                    <option value="">Cargando ubicaciones...</option>
+                </select>
+            </div>
+            <button class="btn-batch" onclick="generateBatchPDF()">Imprimir Etiquetas de esta Línea</button>
+        </div>
+
+        <div class="grid-inputs">
+            <div class="form-group full-width">
+                <label>Sebango <span id="cloud-status" class="status-cloud"></span></label>
+                <input type="text" id="sebango" style="border: 2px solid #3498db; font-weight: bold; font-size: 16px; text-transform: uppercase;" placeholder="Escribir Sebango" oninput="this.value = this.value.toUpperCase()">
+            </div>
+
+            <div class="form-group full-width">
+                <label>Área de Kanban</label>
+                <select id="area" disabled onchange="updateColors()">
+                    <option value="#27ae60">Producto Terminado (Verde)</option>
+                    <option value="#FFFF00">Subensamble (Amarillo)</option>
+                    <option value="#FFC0CB">Estampado (Rosa)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Lado (Side Color)</label>
+                <select id="side" disabled onchange="updateColors()">
+                    <option value="#27ae60">RH (Verde)</option>
+                    <option value="#FFFF00">LH (Amarillo)</option>
+                    <option value="#333333">NA (Negro)</option>
+                </select>
+            </div>
+            
+            <div class="form-group"><label>Tekin</label><input type="text" id="tekin" readonly></div>
+            <div class="form-group"><label>Ubicación</label><input type="text" id="location" readonly></div>
+            <div class="form-group"><label>Empaque</label><input type="text" id="pack" readonly></div>
+            <div class="form-group"><label>QPC (Cantidad)</label><input type="text" id="qpc" readonly></div>
+            <div class="form-group"><label>Cliente Final</label><input type="text" id="client" readonly></div>
+            <div class="form-group"><label>Mínimo Cajas</label><input type="text" id="minBoxes" readonly></div>
+            <div class="form-group"><label>Máximo Cajas</label><input type="text" id="maxBoxes" readonly></div>
+            <div class="form-group"><label>ID Cliente</label><input type="text" id="clientId" readonly></div>
+            <div class="form-group full-width"><label># de Parte</label><input type="text" id="pno" readonly></div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-preview" onclick="renderPreview()">Vista Previa</button>
+            <button class="btn-pdf" id="btn-pdf" onclick="generateExactPDF()">Generar PDF</button>
+        </div>
+        <div id="pdf-progress"></div>
+    </div>
+
+    <div class="preview-container">
+        <h3 style="color:#999; margin-top:0;">VISTA PREVIA DE ETIQUETA JAMA</h3>
+        <div id="kanban-box" class="kanban-render"></div>
+    </div>
+</div>
+
+<script>
+    let productImg = "";
+    const SHEET_ID = "1GkWY2r-kz_wfv_-LPEeFEdKe1qNILTV86pln2xg_rIM";
+    const ADMIN_PASS = "pcpc2026ktmex";
+    let isAdmin = false;
+    let fullDatabase = []; 
+
+    function toggleAdminMode() {
+        if (!isAdmin) {
+            const pass = prompt("Ingrese la contraseña de Administrador:");
+            if (pass === ADMIN_PASS) {
+                isAdmin = true;
+                enableAdminFields(true);
+                alert("Modo Administrador activado. Todos los campos están desbloqueados.");
+            } else if (pass !== null) {
+                alert("Contraseña incorrecta.");
+            }
+        } else {
+            isAdmin = false;
+            enableAdminFields(false);
+            alert("Modo Administrador desactivado.");
+        }
+    }
+
+    function enableAdminFields(enable) {
+        const fieldsToToggle = ['area', 'side', 'tekin', 'location', 'pack', 'qpc', 'client', 'minBoxes', 'maxBoxes', 'clientId', 'pno'];
+        fieldsToToggle.forEach(id => {
+            const el = document.getElementById(id);
+            if (el.tagName === "SELECT") {
+                el.disabled = !enable;
+            } else {
+                el.readOnly = !enable;
+            }
+        });
+
+        const badge = document.getElementById('admin-badge');
+        const btnToggle = document.querySelector('.btn-admin-toggle');
+        const batchSection = document.getElementById('batch-section');
+
+        if (enable) {
+            badge.style.display = "inline-block";
+            btnToggle.innerText = "Salir Admin";
+            btnToggle.style.background = "#27ae60";
+            batchSection.style.display = "block";
+            loadLocationOptions();
+        } else {
+            badge.style.display = "none";
+            btnToggle.innerText = "Modo Admin";
+            btnToggle.style.background = "#8e44ad";
+            batchSection.style.display = "none";
+        }
+    }
+
+    function mapAreaColor(akanVal) {
+        const val = String(akanVal).trim();
+        if (val === "3") return "#27ae60";
+        if (val === "2") return "#FFFF00";
+        if (val === "1") return "#FFC0CB";
+        return "#27ae60";
+    }
+
+    function mapSideColor(ladoVal) {
+        const val = String(ladoVal).trim().toUpperCase();
+        if (val === "RH") return "#27ae60";
+        if (val === "LH") return "#FFFF00";
+        if (val === "NA") return "#333333";
+        return "#27ae60";
+    }
+
+    async function processDriveImage(rawUrl) {
+        if (!rawUrl) return "";
+        if (rawUrl.startsWith("data:image")) return rawUrl;
+
+        let fileId = "";
+        const matchD = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const matchId = rawUrl.match(/id=([a-zA-Z0-9_-]+)/);
+
+        if (matchD && matchD[1]) fileId = matchD[1];
+        else if (matchId && matchId[1]) fileId = matchId[1];
+        else if (rawUrl.length > 20 && !rawUrl.includes("http")) fileId = rawUrl.trim();
+
+        if (fileId) {
+            return `https://lh3.googleusercontent.com/d/${fileId}=s1000`;
+        }
+        return rawUrl;
+    }
+
+    function fetchAllData() {
+        return new Promise((resolve, reject) => {
+            const oldScript = document.getElementById('gviz-jsonp-script');
+            if (oldScript) oldScript.remove();
+
+            window.handleGvizResponse = function(response) {
+                try {
+                    if (!response || !response.table) throw new Error("Respuesta inválida de Google Sheets");
+
+                    const table = response.table;
+                    let headers = table.cols.map(c => (c.label || c.id || "").toString().trim().toUpperCase());
+                    let dataMatrix = table.rows.map(r => r.c ? r.c.map(cell => (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v).trim() : "") : [] );
+
+                    let sebangoColIdx = headers.findIndex(h => h.includes("SEBANGO"));
+                    if (sebangoColIdx === -1) {
+                        for (let i = 0; i < dataMatrix.length; i++) {
+                            const rowUpper = dataMatrix[i].map(x => x.toUpperCase());
+                            const idx = rowUpper.findIndex(x => x.includes("SEBANGO"));
+                            if (idx !== -1) {
+                                headers = rowUpper;
+                                sebangoColIdx = idx;
+                                dataMatrix = dataMatrix.slice(i + 1);
+                                break;
+                            }
+                        }
+                    }
+
+                    const getByColLetter = (row, letter) => {
+                        const idx = letter.toUpperCase().charCodeAt(0) - 65;
+                        return (row[idx] !== undefined) ? String(row[idx]) : "";
+                    };
+
+                    const getColIndex = (colName) => {
+                        const target = colName.toUpperCase();
+                        return headers.findIndex(h => h === target || h.trim() === target || h.includes(target));
+                    };
+
+                    const getVal = (row, colName, defaultColLetter) => {
+                        const idx = getColIndex(colName);
+                        if (idx !== -1 && row[idx] !== undefined) return String(row[idx]);
+                        return getByColLetter(row, defaultColLetter);
+                    };
+
+                    fullDatabase = dataMatrix.map(row => ({
+                        akan: getVal(row, "AKAN", "A"),
+                        lado: getVal(row, "LADO", "B"),
+                        tekin: getVal(row, "TEKIN", "C"),
+                        sebango: getVal(row, "SEBANGO", "D"),
+                        location: getVal(row, "UBICACION", "E"),
+                        pack: getVal(row, "EMP", "F"),
+                        qpc: getVal(row, "QPC", "G"),
+                        clientId: getVal(row, "IDC", "H"),
+                        pno: getVal(row, "NP", "I"),
+                        client: getVal(row, "CF", "J"),
+                        img: getVal(row, "IMG", "K"),
+                        minBoxes: getVal(row, "INV MINIMO", "M"),
+                        maxBoxes: getVal(row, "INVENTARIO MAXIMO", "N")
+                    })).filter(item => item.sebango !== "");
+
+                    resolve(fullDatabase);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+
+            const script = document.createElement('script');
+            script.id = 'gviz-jsonp-script';
+            script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse`;
+            document.body.appendChild(script);
+        });
+    }
+
+    async function loadLocationOptions() {
+        const selectEl = document.getElementById('batch-location-select');
+        selectEl.innerHTML = '<option value="">Cargando ubicaciones...</option>';
+        try {
+            await fetchAllData();
+            
+            // Extrae tanto las ubicaciones exactas como los prefijos/líneas (ej: "B4A" de "B4A-01")
+            const rawLocations = fullDatabase.map(item => item.location.trim()).filter(Boolean);
+            const lineSet = new Set();
+
+            rawLocations.forEach(loc => {
+                lineSet.add(loc); // Agrega la ubicación exacta
+                // Si contiene separadores como guion o espacio, extrae la palabra clave principal de la línea
+                const baseLine = loc.split(/[\s-]/)[0];
+                if (baseLine && baseLine !== loc) {
+                    lineSet.add(baseLine);
+                }
+            });
+
+            const sortedLocations = [...lineSet].sort();
+            selectEl.innerHTML = '<option value="">-- Seleccionar Ubicación / Línea --</option>';
+            sortedLocations.forEach(loc => {
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.innerText = loc;
+                selectEl.appendChild(opt);
+            });
+        } catch (err) {
+            selectEl.innerHTML = '<option value="">Error al cargar ubicaciones</option>';
+        }
+    }
+
+    async function populateFormFromData(item) {
+        document.getElementById('sebango').value = item.sebango;
+        document.getElementById('area').value = mapAreaColor(item.akan);
+        document.getElementById('side').value = mapSideColor(item.lado);
+        document.getElementById('tekin').value = item.tekin;
+        document.getElementById('location').value = item.location;
+        document.getElementById('pack').value = item.pack;
+        document.getElementById('qpc').value = item.qpc;
+        document.getElementById('clientId').value = item.clientId;
+        document.getElementById('pno').value = item.pno;
+        document.getElementById('client').value = item.client;
+        document.getElementById('minBoxes').value = item.minBoxes;
+        document.getElementById('maxBoxes').value = item.maxBoxes;
+
+        if (item.img && item.img.trim() !== "") {
+            productImg = await processDriveImage(item.img.trim());
+        } else {
+            productImg = "";
+        }
+        updateColors();
+    }
+
+    async function fetchDatabaseBySebango(targetSebango) {
+        const statusEl = document.getElementById('cloud-status');
+        if (!targetSebango) {
+            renderPreview();
+            return;
+        }
+
+        statusEl.style.color = "#3498db";
+        statusEl.innerText = "Consultando...";
+
+        try {
+            if (fullDatabase.length === 0) await fetchAllData();
+            const match = fullDatabase.find(r => r.sebango.trim().toUpperCase() === targetSebango.trim().toUpperCase());
+
+            if (match) {
+                await populateFormFromData(match);
+                statusEl.style.color = "#2ecc71";
+                statusEl.innerText = "Datos Cargados";
+            } else {
+                statusEl.style.color = "#e67e22";
+                statusEl.innerText = `'${targetSebango}' No encontrado.`;
+            }
+        } catch (err) {
+            statusEl.style.color = "#e74c3c";
+            statusEl.innerText = `Error: ${err.message}`;
+        }
+    }
+
+    const sebangoInput = document.getElementById('sebango');
+    sebangoInput.addEventListener('change', (e) => fetchDatabaseBySebango(e.target.value));
+    sebangoInput.addEventListener('blur', (e) => fetchDatabaseBySebango(e.target.value));
+
+    const editableInputs = ['tekin', 'location', 'pack', 'qpc', 'clientId', 'pno', 'client', 'minBoxes', 'maxBoxes'];
+    editableInputs.forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', () => renderPreview());
+    });
+
+    function updateColors() {
+        document.documentElement.style.setProperty('--area-color', document.getElementById('area').value);
+        document.documentElement.style.setProperty('--side-color', document.getElementById('side').value);
+        renderPreview();
+    }
+
+    function renderPreview() {
+        const box = document.getElementById('kanban-box');
+        const sideVal = document.getElementById('side').value;
+        const textColor = sideVal === "#333333" ? "white" : "black";
+        const sebangoVal = document.getElementById('sebango').value.trim();
+        const tekinVal = document.getElementById('tekin').value;
+
+        if (!sebangoVal) {
+            box.innerHTML = "";
+            box.style.display = "none";
+            return;
+        }
+
+        box.style.display = "flex";
+
+        box.innerHTML = `
+            <div class="header-row">
+                <div class="header-cell proc-highlight"><span>Ubicación</span><div>${document.getElementById('location').value}</div></div>
+                <div class="header-cell"><span>Empaque</span><div>${document.getElementById('pack').value}</div></div>
+                <div class="header-cell"><span>QPC</span><div>${document.getElementById('qpc').value}</div></div>
+                <div class="header-cell"><span>Cliente</span><div>${document.getElementById('client').value}</div></div>
+            </div>
+            <div class="body-row">
+                <div class="left-panel" style="color: ${textColor}">
+                    <div class="side-field val-large" data-label="KTMEX">${sebangoVal}</div>
+                    <div class="side-field val-mid" data-label="# PARTE">${document.getElementById('pno').value}</div>
+                    <div class="side-field val-large" data-label="CLIENTE">${document.getElementById('clientId').value}</div>
+                </div>
+                <div class="right-panel">
+                    <div class="center-content">
+                        <div class="img-area">
+                            ${productImg ? `<img src="${productImg}" crossorigin="anonymous" id="preview-img-obj">` : '<span class="no-img-text">Imagen de la Pieza</span>'}
+                            ${tekinVal ? `<div class="tekin-label">${tekinVal}</div>` : ''}
+                        </div>
+                        <div class="min-max-bar">
+                            <div class="min-box">
+                                <span class="min-max-title">Mínimo de cajas</span>
+                                <span class="min-max-val">${document.getElementById('minBoxes').value}</span>
+                            </div>
+                            <div class="max-box">
+                                <span class="min-max-title">Máximo de cajas</span>
+                                <span class="min-max-val">${document.getElementById('maxBoxes').value}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="qr-area">
+                        <div id="qr-target-element"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const qrContainer = document.getElementById('qr-target-element');
+        qrContainer.innerHTML = "";
+        new QRCode(qrContainer, {
+            text: sebangoVal,
+            width: 105,
+            height: 105,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    }
+
+    async function generateExactPDF() {
+        const btnPdf = document.getElementById('btn-pdf');
+        const progressEl = document.getElementById('pdf-progress');
+        const sebangoVal = document.getElementById('sebango').value.trim();
+
+        if (!sebangoVal) {
+            alert("Ingrese un Sebango válido para generar el PDF.");
+            return;
+        }
+
+        btnPdf.disabled = true;
+        progressEl.innerText = "Generando PDF de etiqueta...";
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'letter');
+        const kanbanBox = document.getElementById('kanban-box');
+
+        renderPreview();
+
+        const imgObj = document.getElementById('preview-img-obj');
+        if (imgObj && !imgObj.complete) {
+            await new Promise(res => imgObj.onload = res);
+        }
+
+        const baseCanvas = await html2canvas(kanbanBox, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            animated: false
+        });
+
+        const labelWidth = 205.9;
+        const labelHeight = 88;
+        const xPos = 5;
+        const yPos = 5;
+
+        const imgData = baseCanvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', xPos, yPos, labelWidth, labelHeight);
+
+        pdf.save(`KTMEX_Label_${sebangoVal || 'JAMA'}.pdf`);
+
+        btnPdf.disabled = false;
+        progressEl.innerText = "PDF generado exitosamente";
+        setTimeout(() => progressEl.innerText = "", 4000);
+    }
+
+    async function generateBatchPDF() {
+        const selectedLoc = document.getElementById('batch-location-select').value.trim().toUpperCase();
+        const progressEl = document.getElementById('pdf-progress');
+
+        if (!selectedLoc) {
+            alert("Por favor seleccione una ubicación o línea válida.");
+            return;
+        }
+
+        // Filtra cualquier elemento cuya ubicación CONTENGA el término seleccionado (ej. "B4A" coincide con "B4A-01")
+        const items = fullDatabase.filter(item => item.location.trim().toUpperCase().includes(selectedLoc));
+        if (items.length === 0) {
+            alert("No se encontraron registros para la ubicación o línea seleccionada.");
+            return;
+        }
+
+        progressEl.innerText = `Procesando 0/${items.length} etiquetas...`;
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'letter');
+        const kanbanBox = document.getElementById('kanban-box');
+
+        const labelWidth = 205.9;
+        const labelHeight = 88;
+        const xPos = 5;
+        const yPos = 5;
+
+        for (let i = 0; i < items.length; i++) {
+            progressEl.innerText = `Generando etiqueta ${i + 1} de ${items.length}...`;
+            await populateFormFromData(items[i]);
+
+            const imgObj = document.getElementById('preview-img-obj');
+            if (imgObj && !imgObj.complete) {
+                await new Promise(res => {
+                    imgObj.onload = res;
+                    imgObj.onerror = res;
+                });
+            }
+
+            const baseCanvas = await html2canvas(kanbanBox, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                animated: false
+            });
+
+            const imgData = baseCanvas.toDataURL('image/jpeg', 0.95);
+            
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', xPos, yPos, labelWidth, labelHeight);
+        }
+
+        pdf.save(`KTMEX_Lote_${selectedLoc}.pdf`);
+        progressEl.innerText = `¡Lote (${items.length} etiquetas) generado con éxito!`;
+        setTimeout(() => progressEl.innerText = "", 4000);
+    }
+</script>
+</body>
+</html>
