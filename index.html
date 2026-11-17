@@ -404,7 +404,7 @@
                 <label>Área de Kanban</label>
                 <select id="area" disabled onchange="updateColors()">
                     <option value="#27ae60">Producto Terminado (Verde)</option>
-                    <option value="#FFFF00">Subensamble (Amarillo)</option>
+                    <option value="#FFC000">Subensamble (Amarillo)</option>
                     <option value="#FFC0CB">Estampado (Rosa)</option>
                 </select>
             </div>
@@ -413,7 +413,7 @@
                 <label>Lado (Side Color)</label>
                 <select id="side" disabled onchange="updateColors()">
                     <option value="#27ae60">RH (Verde)</option>
-                    <option value="#FFFF00">LH (Amarillo)</option>
+                    <option value="#FFC000">LH (Amarillo)</option>
                     <option value="#333333">NA (Negro)</option>
                 </select>
             </div>
@@ -426,7 +426,8 @@
             <div class="form-group"><label>Mínimo Cajas</label><input type="text" id="minBoxes" readonly></div>
             <div class="form-group"><label>Máximo Cajas</label><input type="text" id="maxBoxes" readonly></div>
             <div class="form-group"><label>ID Cliente</label><input type="text" id="clientId" readonly></div>
-            <div class="form-group full-width"><label># de Parte</label><input type="text" id="pno" readonly></div>
+            <div class="form-group"><label># de Parte</label><input type="text" id="pno" readonly></div>
+            <div class="form-group"><label>Copias (Individual)</label><input type="number" id="copies" value="1" min="1"></div>
         </div>
 
         <div class="btn-group">
@@ -498,7 +499,7 @@
     function mapAreaColor(akanVal) {
         const val = String(akanVal).trim();
         if (val === "3") return "#27ae60";
-        if (val === "2") return "#FFFF00";
+        if (val === "2") return "#FFC000";
         if (val === "1") return "#FFC0CB";
         return "#27ae60";
     }
@@ -506,7 +507,7 @@
     function mapSideColor(ladoVal) {
         const val = String(ladoVal).trim().toUpperCase();
         if (val === "RH") return "#27ae60";
-        if (val === "LH") return "#FFFF00";
+        if (val === "LH") return "#FFC000";
         if (val === "NA") return "#333333";
         return "#27ae60";
     }
@@ -690,7 +691,9 @@
     const editableInputs = ['tekin', 'location', 'pack', 'qpc', 'clientId', 'pno', 'client', 'minBoxes', 'maxBoxes'];
     editableInputs.forEach(id => {
         const el = document.getElementById(id);
-        el.addEventListener('input', () => renderPreview());
+        if(el) {
+            el.addEventListener('input', () => renderPreview());
+        }
     });
 
     function updateColors() {
@@ -765,6 +768,9 @@
         const btnPdf = document.getElementById('btn-pdf');
         const progressEl = document.getElementById('pdf-progress');
         const sebangoVal = document.getElementById('sebango').value.trim();
+        
+        // Obtener el número de copias ingresado, por defecto 1
+        const copies = parseInt(document.getElementById('copies').value, 10) || 1; 
 
         if (!sebangoVal) {
             alert("Ingrese un Sebango válido para generar el PDF.");
@@ -772,7 +778,7 @@
         }
 
         btnPdf.disabled = true;
-        progressEl.innerText = "Generando PDF de etiqueta...";
+        progressEl.innerText = copies > 1 ? `Generando PDF con ${copies} etiquetas...` : "Generando PDF de etiqueta...";
 
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'letter');
@@ -798,7 +804,12 @@
         const yPos = 5;
 
         const imgData = baseCanvas.toDataURL('image/jpeg', 0.95);
-        pdf.addImage(imgData, 'JPEG', xPos, yPos, labelWidth, labelHeight);
+        
+        // Bucle para añadir páginas e imágenes según la cantidad de copias
+        for (let i = 0; i < copies; i++) {
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', xPos, yPos, labelWidth, labelHeight);
+        }
 
         pdf.save(`KTMEX_Label_${sebangoVal || 'JAMA'}.pdf`);
 
